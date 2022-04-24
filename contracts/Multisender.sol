@@ -41,6 +41,16 @@ contract MultiSender is Ownable {
     FEE_ADDRESS = _feeAddress;
   }
 
+  function setFeeBasis(int256 _feeBasis) external onlyOwner {
+    require(FEE_BASIS != _feeBasis, 'ALREADY_SET');
+    FEE_BASIS = _feeBasis;
+  }
+
+  function setFeePerAddresses(uint256 _feePerAddresses) external onlyOwner {
+    require(FEE_PER_ADDRESSES != _feePerAddresses, 'ALREADY_SET');
+    FEE_PER_ADDRESSES = _feePerAddresses;
+  }
+
   function _indexOfUsers(address _user) private view returns (uint256) {
     uint256 _index = uint256(int256(-1));
 
