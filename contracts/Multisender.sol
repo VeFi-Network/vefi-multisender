@@ -106,4 +106,21 @@ contract MultiSender is Ownable {
     emit Multisend(_payments, _msgSender(), _token, _fee, _totalAmount);
     return true;
   }
+
+  function takeAccumulatedFees(int256 _percentage) external onlyOwner returns (bool) {
+    uint256 usage = 0;
+    address _winner;
+
+    for (uint256 i = 0; i < _users.length; i++) {
+      if (_usage[_users[i]] > usage) {
+        _winner = _users[i];
+        usage = _usage[_users[i]];
+      }
+    }
+
+    uint256 _amount = (uint256(_percentage) * address(this).balance).div(100);
+    require(Helpers._safeTransferETH(FEE_ADDRESS, address(this).balance.sub(_amount)), 'COULD_NOT_TRANSFER_ETHER');
+    require(Helpers._safeTransferETH(_winner, _amount), 'COULD_NOT_TRANSFER_ETHER');
+    return true;
+  }
 }
