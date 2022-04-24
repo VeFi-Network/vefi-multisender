@@ -37,6 +37,7 @@ contract MultiSender is Ownable {
   }
 
   function setFeeAddress(address _feeAddress) external onlyOwner {
+    require(FEE_ADDRESS != _feeAddress, 'ALREADY_SET');
     FEE_ADDRESS = _feeAddress;
   }
 
@@ -89,6 +90,8 @@ contract MultiSender is Ownable {
     if (_indexOfUsers(_msgSender()) == uint256(int256(-1))) {
       _users.push(_msgSender());
     }
+
+    _usage[_msgSender()] = _usage[_msgSender()].add(1);
 
     emit Multisend(_payments, _msgSender(), _token, _fee, _totalAmount);
     return true;
