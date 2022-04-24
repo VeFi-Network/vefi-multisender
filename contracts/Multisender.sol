@@ -17,6 +17,11 @@ contract MultiSender is Ownable {
   address FEE_ADDRESS;
   int256 FEE_BASIS;
 
+  address[] private _users;
+  mapping(address => uint256) _usage;
+
+  event Multisend(Payment[] _payments, address indexed _by, address _token, uint256 _fee, uint256 _totalAmount);
+
   constructor(
     address _feeAddress,
     uint256 _fee,
@@ -31,8 +36,24 @@ contract MultiSender is Ownable {
     return length.mul(FEE_PER_ADDRESSES).div(uint256(FEE_BASIS));
   }
 
+  function setFeeAddress(address _feeAddress) external onlyOwner {
+    FEE_ADDRESS = _feeAddress;
+  }
+
+  function _indexOfUsers(address _user) private view returns (uint256) {
+    uint256 _index = uint256(int256(-1));
+
+    for (uint256 i = 0; i < _users.length; i++) {
+      if (_users[i] == _user) {
+        _index = i;
+      }
+    }
+    return _index;
+  }
+
   function multisend(Payment[] memory _payments, address _token) external payable returns (bool) {
     uint256 _fee = calcFee(_payments.length);
+    uint256 _totalAmount;
 
     if (_token == address(0)) {
       uint256 _totalPaymentAmount = 0;
@@ -44,6 +65,8 @@ contract MultiSender is Ownable {
 
       for (uint256 i = 0; i < _payments.length; i++)
         require(Helpers._safeTransferETH(_payments[i]._to, _payments[i]._amount), 'COULD_NOT_TRANSFER_ETHER');
+
+      _totalAmount = _totalPaymentAmount;
     } else {
       require(msg.value >= _fee, 'MUST_INCLUDE_FEE');
 
@@ -59,8 +82,15 @@ contract MultiSender is Ownable {
           Helpers._safeTransferFrom(_token, _msgSender(), _payments[i]._to, _payments[i]._amount),
           'COULD_NOT_TRANSFER_TOKEN'
         );
+
+      _totalAmount = _totalPaymentAmount;
     }
 
+    if (_indexOfUsers(_msgSender()) == uint256(int256(-1))) {
+      _users.push(_msgSender());
+    }
+
+    emit Multisend(_payments, _msgSender(), _token, _fee, _totalAmount);
     return true;
   }
 }
