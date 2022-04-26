@@ -17,6 +17,8 @@ contract MultiSender is Ownable {
   address FEE_ADDRESS;
   int256 FEE_BASIS;
 
+  uint256 ACCUMULATED_FEE;
+
   address[] private _users;
   mapping(address => uint256) _usage;
 
@@ -102,9 +104,16 @@ contract MultiSender is Ownable {
     }
 
     _usage[_msgSender()] = _usage[_msgSender()].add(1);
+    ACCUMULATED_FEE = ACCUMULATED_FEE.add(_fee);
 
     emit Multisend(_payments, _msgSender(), _token, _fee, _totalAmount);
     return true;
+  }
+
+  function _resetUsage() private {
+    for (uint256 i = 0; i < _users.length; i++) {
+      _usage[_users[i]] = 0;
+    }
   }
 
   function takeAccumulatedFees(int256 _percentage) external onlyOwner returns (bool) {
@@ -119,9 +128,11 @@ contract MultiSender is Ownable {
       }
     }
 
-    uint256 _amount = (uint256(_percentage) * address(this).balance).div(100);
+    uint256 _amount = (uint256(_percentage) * ACCUMULATED_FEE).div(100);
     require(Helpers._safeTransferETH(FEE_ADDRESS, address(this).balance.sub(_amount)), 'COULD_NOT_TRANSFER_ETHER');
     require(Helpers._safeTransferETH(_winner, _amount), 'COULD_NOT_TRANSFER_ETHER');
+    _resetUsage();
+    ACCUMULATED_FEE = 0;
     return true;
   }
 }
