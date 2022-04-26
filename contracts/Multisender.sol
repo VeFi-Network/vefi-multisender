@@ -117,6 +117,7 @@ contract MultiSender is Ownable {
   }
 
   function takeAccumulatedFees(int256 _percentage) external onlyOwner returns (bool) {
+    require(_percentage > 0, 'PERCENTAGE_MUST_BE_GREATER_THAN_0');
     require(address(this).balance > 0, 'BALANCE_TOO_LOW');
     uint256 usage = 0;
     address _winner;
