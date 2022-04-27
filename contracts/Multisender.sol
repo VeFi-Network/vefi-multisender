@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import './libraries/Helpers.sol';
 
-contract MultiSender is Ownable {
+contract MultiSender is Ownable, ReentrancyGuard {
   using SafeMath for uint256;
 
   struct Payment {
@@ -16,6 +17,8 @@ contract MultiSender is Ownable {
   uint256 FEE_PER_ADDRESSES;
   address FEE_ADDRESS;
   int256 FEE_BASIS;
+
+  uint256 ACCUMULATED_FEE;
 
   address[] private _users;
   mapping(address => uint256) _usage;
@@ -62,7 +65,7 @@ contract MultiSender is Ownable {
     return _index;
   }
 
-  function multisend(Payment[] memory _payments, address _token) external payable returns (bool) {
+  function multisend(Payment[] memory _payments, address _token) external payable nonReentrant returns (bool) {
     uint256 _fee = calcFee(_payments.length);
     uint256 _totalAmount;
 
@@ -102,12 +105,20 @@ contract MultiSender is Ownable {
     }
 
     _usage[_msgSender()] = _usage[_msgSender()].add(1);
+    ACCUMULATED_FEE = ACCUMULATED_FEE.add(_fee);
 
     emit Multisend(_payments, _msgSender(), _token, _fee, _totalAmount);
     return true;
   }
 
+  function _resetUsage() private {
+    for (uint256 i = 0; i < _users.length; i++) {
+      _usage[_users[i]] = 0;
+    }
+  }
+
   function takeAccumulatedFees(int256 _percentage) external onlyOwner returns (bool) {
+    require(_percentage > 0, 'PERCENTAGE_MUST_BE_GREATER_THAN_0');
     require(address(this).balance > 0, 'BALANCE_TOO_LOW');
     uint256 usage = 0;
     address _winner;
@@ -119,9 +130,11 @@ contract MultiSender is Ownable {
       }
     }
 
-    uint256 _amount = (uint256(_percentage) * address(this).balance).div(100);
+    uint256 _amount = (uint256(_percentage) * ACCUMULATED_FEE).div(100);
     require(Helpers._safeTransferETH(FEE_ADDRESS, address(this).balance.sub(_amount)), 'COULD_NOT_TRANSFER_ETHER');
     require(Helpers._safeTransferETH(_winner, _amount), 'COULD_NOT_TRANSFER_ETHER');
+    _resetUsage();
+    ACCUMULATED_FEE = 0;
     return true;
   }
 }
